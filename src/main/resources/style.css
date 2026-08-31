@@ -1,7 +1,10 @@
 /*
- * Layered on top of the Transit theme, which supplies the control styling and
- * the colour tokens used below (accent_color, -fx-mid-text-color). Kept
- * deliberately small: anything Transit already does well is left alone.
+ * Layered on top of the Transit theme, which supplies the control styling.
+ *
+ * Transit's dark style redefines its own tokens but leaves the inherited Modena
+ * text colours alone, so anything this application colours itself needs an
+ * explicit ".dark" counterpart - otherwise dark grey text lands on a #252525
+ * background and disappears.
  */
 
 .app-title {
@@ -10,7 +13,7 @@
 }
 
 .app-subtitle {
-    -fx-text-fill: -fx-mid-text-color;
+    -fx-text-fill: #5b6b7f;
 }
 
 .section-heading {
@@ -19,12 +22,12 @@
 }
 
 .notes {
-    -fx-text-fill: -fx-mid-text-color;
+    -fx-text-fill: #5b6b7f;
     -fx-font-size: 11.5px;
 }
 
 .status {
-    -fx-text-fill: -fx-mid-text-color;
+    -fx-text-fill: #35485e;
 }
 
 .status.error {
@@ -33,11 +36,25 @@
 }
 
 /* The one button that matters. Transit already paints :default buttons in the
-   accent colour; this only makes it bigger than the secondary buttons. */
+   accent colour; this only makes it bigger than the secondary controls. */
 .primary-action {
     -fx-font-size: 14px;
     -fx-font-weight: bold;
     -fx-padding: 11 20 11 20;
+}
+
+/* Section actions: quiet square buttons that sit in the headings. */
+.icon-button {
+    -fx-padding: 5 8 5 8;
+    -fx-background-radius: 5;
+}
+
+.icon {
+    -fx-fill: #35485e;
+}
+
+.icon-button:hover .icon {
+    -fx-fill: accent_color;
 }
 
 .log {
@@ -47,4 +64,36 @@
 
 .progress-bar {
     -fx-pref-height: 10px;
+}
+
+/*******************************************************************************
+ *  Dark mode                                                                  *
+ ******************************************************************************/
+
+.dark .app-subtitle,
+.dark .notes {
+    -fx-text-fill: #9fb0c0;
+}
+
+.dark .status {
+    -fx-text-fill: #d3dbe3;
+}
+
+/* #b3261e is unreadable on a dark background. */
+.dark .status.error {
+    -fx-text-fill: #ff7a70;
+}
+
+/* Transit keeps accent_color at #0078d7 in both styles, which is heavy against
+   #252525; lift it so headings stay legible. */
+.dark .section-heading {
+    -fx-text-fill: derive(accent_color, 45%);
+}
+
+.dark .icon {
+    -fx-fill: #cdd6df;
+}
+
+.dark .icon-button:hover .icon {
+    -fx-fill: derive(accent_color, 45%);
 }

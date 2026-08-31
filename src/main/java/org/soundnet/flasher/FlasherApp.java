@@ -11,16 +11,19 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -30,6 +33,7 @@ import javafx.util.Duration;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.prefs.Preferences;
 
 /**
  * The whole user interface: pick a port, pick a firmware build, press the button.
@@ -42,11 +46,18 @@ import java.util.Optional;
  */
 public final class FlasherApp extends Application {
 
+    private static final String DARK_MODE_KEY = "darkMode";
+    /** Style class carrying this application's own dark-mode colours. */
+    private static final String DARK_CLASS = "dark";
+
     private final ComboBox<PortInfo> portBox = new ComboBox<>();
     private final ComboBox<FirmwareImage> firmwareBox = new ComboBox<>();
     private final Button updateButton = new Button("Update sensor");
-    private final Button refreshPortsButton = new Button("Refresh");
-    private final Button refreshCatalogButton = new Button("Check for new firmware");
+    private final Button refreshPortsButton =
+            iconButton(Icons.refresh(), "Look for sensors again");
+    private final Button refreshCatalogButton =
+            iconButton(Icons.cloudDownload(), "Check for new firmware");
+    private final CheckBox darkModeToggle = new CheckBox("Dark mode");
     private final ProgressBar progressBar = new ProgressBar(0);
     private final Label statusLabel = new Label("Connect a sensor by USB to begin.");
     private final Label firmwareNotes = new Label();
@@ -55,6 +66,11 @@ public final class FlasherApp extends Application {
 
     private final FirmwareCatalog catalog = new FirmwareCatalog();
 
+    /** Remembers the light/dark choice between runs. */
+    private final Preferences preferences = Preferences.userNodeForPackage(FlasherApp.class);
+
+    private TransitTheme theme;
+    private VBox root;
     private Timeline portPoller;
     private boolean busy;
 
@@ -67,37 +83,41 @@ public final class FlasherApp extends Application {
         Label title = new Label("SoundNet Firmware Updater");
         title.getStyleClass().add("app-title");
 
+        darkModeToggle.setSelected(preferences.getBoolean(DARK_MODE_KEY, true));
+        darkModeToggle.selectedProperty().addListener((obs, was, dark) -> applyStyle(dark));
+
+        HBox header = new HBox(12, title, spacer(), darkModeToggle);
+        header.setAlignment(Pos.CENTER_LEFT);
+
         Label subtitle = new Label(
                 "Installs new firmware on a SoundNet sensor over USB. "
                         + "Nothing else needs to be installed.");
         subtitle.getStyleClass().add("app-subtitle");
         subtitle.setWrapText(true);
 
+        // Both drop-downs are the only thing in their row, so they end up exactly
+        // as wide as each other and as the button, progress bar and details pane
+        // below. The per-section actions live in the headings instead.
         portBox.setMaxWidth(Double.MAX_VALUE);
         portBox.setPlaceholder(new Label("No serial ports found"));
-        HBox.setHgrow(portBox, Priority.ALWAYS);
         refreshPortsButton.setOnAction(e -> refreshPorts());
-        HBox portRow = new HBox(8, portBox, refreshPortsButton);
-        portRow.setAlignment(Pos.CENTER_LEFT);
 
         firmwareBox.setMaxWidth(Double.MAX_VALUE);
         firmwareBox.setPlaceholder(new Label("No firmware available"));
         firmwareBox.valueProperty().addListener((obs, old, value) ->
                 firmwareNotes.setText(value == null ? "" : value.detail()));
+        refreshCatalogButton.setOnAction(e -> refreshCatalog(true));
+
         firmwareNotes.getStyleClass().add("notes");
         firmwareNotes.setWrapText(true);
-
         catalogStatus.getStyleClass().add("notes");
         catalogStatus.setWrapText(true);
-        refreshCatalogButton.setOnAction(e -> refreshCatalog(true));
-        HBox catalogRow = new HBox(10, catalogStatus, spacer(), refreshCatalogButton);
-        catalogRow.setAlignment(Pos.CENTER_LEFT);
 
-        // Transit paints :default buttons in the accent colour, so marking it
-        // the default button is what makes it the primary action.
         updateButton.getStyleClass().add("primary-action");
         updateButton.setMaxWidth(Double.MAX_VALUE);
         updateButton.setDisable(true);
+        // Transit paints :default buttons in the accent colour, so marking it the
+        // default button is what makes it read as the primary action.
         updateButton.setDefaultButton(true);
         updateButton.setOnAction(e -> onUpdate());
 
@@ -111,26 +131,29 @@ public final class FlasherApp extends Application {
         logArea.getStyleClass().add("log");
         TitledPane details = new TitledPane("Details", logArea);
         details.setExpanded(false);
+        details.setMaxWidth(Double.MAX_VALUE);
 
-        VBox root = new VBox(16,
-                title,
+        root = new VBox(16,
+                header,
                 subtitle,
                 new Separator(),
-                section("1.   Sensor", portRow),
-                section("2.   Firmware", new VBox(6, firmwareBox, firmwareNotes, catalogRow)),
+                section("1.   Sensor", refreshPortsButton, portBox),
+                section("2.   Firmware", refreshCatalogButton,
+                        new VBox(6, firmwareBox, firmwareNotes, catalogStatus)),
                 updateButton,
                 progressBar,
                 statusLabel,
                 details);
         root.setPadding(new Insets(24));
-        // Transit paints its own window background through this style class.
+        root.setFillWidth(true);
+        // Transit paints the window background through this style class.
         root.getStyleClass().add(TransitStyleClass.BACKGROUND);
 
-        Scene scene = new Scene(root, 600, 580);
-        new TransitTheme(scene, Style.LIGHT);
+        Scene scene = new Scene(root, 600, 600);
+        theme = new TransitTheme(scene, Style.LIGHT);
         // Loaded after the theme so these rules win over it.
-        scene.getStylesheets().add(
-                FlasherApp.class.getResource("/style.css").toExternalForm());
+        scene.getStylesheets().add(FlasherApp.class.getResource("/style.css").toExternalForm());
+        applyStyle(darkModeToggle.isSelected());
 
         stage.setTitle("SoundNet Firmware Updater");
         stage.setScene(scene);
@@ -159,19 +182,52 @@ public final class FlasherApp extends Application {
         }
     }
 
+    // ------------------------------------------------------------------ theme
+
+    /** Switches Transit between its light and dark styles, and remembers it. */
+    private void applyStyle(boolean dark) {
+        theme.setStyle(dark ? Style.DARK : Style.LIGHT);
+        // Transit's dark style does not restate the Modena text colours, so this
+        // application's own text needs a matching set of rules in style.css.
+        root.getStyleClass().removeIf(DARK_CLASS::equals);
+        if (dark) {
+            root.getStyleClass().add(DARK_CLASS);
+        }
+        preferences.putBoolean(DARK_MODE_KEY, dark);
+    }
+
+    private Style currentStyle() {
+        return darkModeToggle.isSelected() ? Style.DARK : Style.LIGHT;
+    }
+
+    // ------------------------------------------------------------------ layout
+
     private static Region spacer() {
         Region region = new Region();
         HBox.setHgrow(region, Priority.ALWAYS);
         return region;
     }
 
-    private VBox section(String heading, Region content) {
-        Label label = new Label(heading);
-        label.getStyleClass().add("section-heading");
-        return new VBox(7, label, content);
+    private static Button iconButton(Node graphic, String tooltip) {
+        Button button = new Button();
+        button.setGraphic(graphic);
+        button.getStyleClass().add("icon-button");
+        button.setTooltip(new Tooltip(tooltip));
+        return button;
     }
 
-    // ------------------------------------------------------------- firmware
+    /** A numbered heading with its action tucked to the right, then the content. */
+    private VBox section(String heading, Button action, Region content) {
+        Label label = new Label(heading);
+        label.getStyleClass().add("section-heading");
+        HBox headingRow = new HBox(8, label, spacer(), action);
+        headingRow.setAlignment(Pos.CENTER_LEFT);
+        VBox box = new VBox(7, headingRow, content);
+        box.setFillWidth(true);
+        return box;
+    }
+
+    // ---------------------------------------------------------------- firmware
 
     /** Fills the drop-down from what is already on this computer, immediately. */
     private void loadFirmwareOffline() {
@@ -194,7 +250,7 @@ public final class FlasherApp extends Application {
                 refreshCatalogButton.setDisable(busy);
                 if (userAsked && !result.online()) {
                     catalogStatus.setText(result.status()
-                            + ".  Could not reach the firmware repository.");
+                            + "   Could not reach the firmware repository.");
                 }
             });
         }, "soundnet-catalog");
@@ -217,7 +273,7 @@ public final class FlasherApp extends Application {
         updateReadiness();
     }
 
-    // ----------------------------------------------------------------- ports
+    // ------------------------------------------------------------------- ports
 
     private void refreshPorts() {
         PortInfo selected = portBox.getValue();
@@ -241,7 +297,7 @@ public final class FlasherApp extends Application {
                 || firmwareBox.getValue() == null);
     }
 
-    // ---------------------------------------------------------------- update
+    // ------------------------------------------------------------------ update
 
     private void onUpdate() {
         PortInfo port = portBox.getValue();
@@ -364,7 +420,7 @@ public final class FlasherApp extends Application {
     /** Dialogs get their own Scene, so the theme has to be applied to each one. */
     private void styleDialog(Alert alert) {
         Scene scene = alert.getDialogPane().getScene();
-        new TransitTheme(scene, Style.LIGHT);
+        new TransitTheme(scene, currentStyle());
         alert.getDialogPane().getStyleClass().add(TransitStyleClass.BACKGROUND);
     }
 

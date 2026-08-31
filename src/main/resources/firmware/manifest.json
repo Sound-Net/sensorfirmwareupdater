@@ -1,5 +1,24 @@
 {
   "schemaVersion": 1,
-  "updated": "",
-  "firmware": []
+  "updated": "2026-08-31",
+  "firmware": [
+    {
+      "revision": "SOUNDNET_V1_R6",
+      "version": "2.0.7",
+      "file": "soundnet_firmware-2.0.7-SOUNDNET_V1_R6.hex",
+      "sha256": "440a539468ca9f9f14206cf1ca1636239e887f50576e3726244475a287982c05",
+      "released": "2026-08-31",
+      "notes": "Fixes the random field lockups that needed a power cycle to clear.",
+      "recommended": true
+    },
+    {
+      "revision": "SOUNDNET_V1_R5",
+      "version": "2.0.7",
+      "file": "soundnet_firmware-2.0.7-SOUNDNET_V1_R5.hex",
+      "sha256": "8502a919d7fc265621f80f7808bf830777b3f5289f62300f018676b2a5844abc",
+      "released": "2026-08-31",
+      "notes": "Fixes the random field lockups that needed a power cycle to clear.",
+      "recommended": true
+    }
+  ]
 }

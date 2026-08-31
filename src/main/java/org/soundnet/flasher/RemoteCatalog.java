@@ -21,7 +21,7 @@ public final class RemoteCatalog {
 
     /** Where firmware is published, ending in a slash. */
     public static final String DEFAULT_BASE_URL =
-            "https://raw.githubusercontent.com/Sound-Net/sensorfirmwarebinary/main/";
+            "https://raw.githubusercontent.com/Sound-Net/sensor_firmware_binary/main/";
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);

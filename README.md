@@ -7,17 +7,20 @@ is.
 
 The researcher sees two drop-downs and a button.
 
-![Three steps: choose the sensor, choose the firmware, press Update.](docs/screenshot.png)
+![Choose the sensor, choose the firmware, press Update.](docs/screenshot.png)
+
+Dark mode is the default; the toggle at the top right switches it and the
+choice is remembered between runs.
 
 ## Where firmware comes from
 
 Firmware is published in a separate repository,
-[`sensorfirmwarebinary`](https://github.com/Sound-Net/sensorfirmwarebinary), and
+[`sensor_firmware_binary`](https://github.com/Sound-Net/sensor_firmware_binary), and
 the updater assembles its list from three places:
 
 | Source | When it is used |
 | --- | --- |
-| **Bundled** — compiled into the application | Always. This is the floor: the updater is never useless, even with no connection. |
+| **Bundled** — compiled into the application | Always. Currently 2.0.7 for `SOUNDNET_V1_R5` and `SOUNDNET_V1_R6`. This is the floor: the updater is never useless, even with no connection. |
 | **Cached** — previously downloaded, kept in `~/.soundnet-firmware-updater/cache` | Offline, after the machine has been online at least once. |
 | **Online** — the live `manifest.json` from the firmware repository | Fetched in the background at startup, so a slow or absent connection never delays the window. |
 
@@ -115,7 +118,7 @@ tools/build-firmware.sh --bundle ../sensorfirmwareupdater/src/main/resources/fir
 
 | System property | Default | Purpose |
 | --- | --- | --- |
-| `soundnet.firmware.repository` | `https://raw.githubusercontent.com/Sound-Net/sensorfirmwarebinary/main/` | Where to fetch firmware from. |
+| `soundnet.firmware.repository` | `https://raw.githubusercontent.com/Sound-Net/sensor_firmware_binary/main/` | Where to fetch firmware from. |
 | `soundnet.firmware.dir` | `./firmware` | An extra folder of firmware beside the application, read like a repository. |
 | `soundnet.cache.dir` | `~/.soundnet-firmware-updater/cache` | Where downloads are kept. |
 

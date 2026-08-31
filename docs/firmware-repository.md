@@ -1,4 +1,4 @@
-# The firmware repository (`sensorfirmwarebinary`)
+# The firmware repository (`sensor_firmware_binary`)
 
 The updater reads its list of installable firmware from a plain git repository
 served over `raw.githubusercontent.com`. There is no releases API, no
@@ -7,7 +7,7 @@ authentication and no build step: **publishing new firmware is a commit**.
 ## Layout
 
 ```
-sensorfirmwarebinary/
+sensor_firmware_binary/
 ├── manifest.json              <- the index the updater fetches
 ├── firmware/
 │   ├── soundnet_firmware-2.0.7-SOUNDNET_V1_R6.hex
@@ -78,7 +78,7 @@ it for a genuinely incompatible change.
 From the firmware source repository:
 
 ```bash
-tools/build-firmware.sh --out ../sensorfirmwarebinary SOUNDNET_V1_R5 SOUNDNET_V1_R6
+tools/build-firmware.sh --out ../sensor_firmware_binary SOUNDNET_V1_R5 SOUNDNET_V1_R6
 ```
 
 That compiles once per hardware revision, writes the `.hex` files, computes the
@@ -87,7 +87,7 @@ are still present and marking the newest build of each revision as recommended.
 Then:
 
 ```bash
-cd ../sensorfirmwarebinary && git add -A && git commit -m "Firmware 2.0.7" && git push
+cd ../sensor_firmware_binary && git add -A && git commit -m "Firmware 2.0.7" && git push
 ```
 
 Every updater already installed picks it up the next time it starts.
@@ -100,7 +100,7 @@ you cut a release of the updater:
 
 ```bash
 tools/build-firmware.sh \
-  --out    ../sensorfirmwarebinary \
+  --out    ../sensor_firmware_binary \
   --bundle ../sensorfirmwareupdater/src/main/resources/firmware
 ```
 
@@ -110,7 +110,7 @@ someone's hands. The repository is where the full history lives.
 ## Pointing somewhere else
 
 The default is
-`https://raw.githubusercontent.com/Sound-Net/sensorfirmwarebinary/main/`.
+`https://raw.githubusercontent.com/Sound-Net/sensor_firmware_binary/main/`.
 Override it for testing, or for an institution that mirrors internally:
 
 ```bash
