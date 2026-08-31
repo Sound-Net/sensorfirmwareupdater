@@ -4,6 +4,8 @@ import com.pixelduke.transit.Style;
 import com.pixelduke.transit.TransitStyleClass;
 import com.pixelduke.transit.TransitTheme;
 
+import org.controlsfx.control.ToggleSwitch;
+
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -16,7 +18,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
@@ -24,6 +25,8 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -57,7 +60,7 @@ public final class FlasherApp extends Application {
             iconButton(Icons.refresh(), "Look for sensors again");
     private final Button refreshCatalogButton =
             iconButton(Icons.cloudDownload(), "Check for new firmware");
-    private final CheckBox darkModeToggle = new CheckBox("Dark mode");
+    private final ToggleSwitch darkModeToggle = new ToggleSwitch("Dark mode");
     private final ProgressBar progressBar = new ProgressBar(0);
     private final Label statusLabel = new Label("Connect a sensor by USB to begin.");
     private final Label firmwareNotes = new Label();
@@ -95,9 +98,6 @@ public final class FlasherApp extends Application {
         subtitle.getStyleClass().add("app-subtitle");
         subtitle.setWrapText(true);
 
-        // Both drop-downs are the only thing in their row, so they end up exactly
-        // as wide as each other and as the button, progress bar and details pane
-        // below. The per-section actions live in the headings instead.
         portBox.setMaxWidth(Double.MAX_VALUE);
         portBox.setPlaceholder(new Label("No serial ports found"));
         refreshPortsButton.setOnAction(e -> refreshPorts());
@@ -110,8 +110,10 @@ public final class FlasherApp extends Application {
 
         firmwareNotes.getStyleClass().add("notes");
         firmwareNotes.setWrapText(true);
+        firmwareNotes.setMaxWidth(Double.MAX_VALUE);
         catalogStatus.getStyleClass().add("notes");
         catalogStatus.setWrapText(true);
+        catalogStatus.setMaxWidth(Double.MAX_VALUE);
 
         updateButton.getStyleClass().add("primary-action");
         updateButton.setMaxWidth(Double.MAX_VALUE);
@@ -137,9 +139,7 @@ public final class FlasherApp extends Application {
                 header,
                 subtitle,
                 new Separator(),
-                section("1.   Sensor", refreshPortsButton, portBox),
-                section("2.   Firmware", refreshCatalogButton,
-                        new VBox(6, firmwareBox, firmwareNotes, catalogStatus)),
+                choices(),
                 updateButton,
                 progressBar,
                 statusLabel,
@@ -213,18 +213,55 @@ public final class FlasherApp extends Application {
         button.setGraphic(graphic);
         button.getStyleClass().add("icon-button");
         button.setTooltip(new Tooltip(tooltip));
+        // Fixed square, so the two buttons match each other however wide their
+        // glyphs happen to be, and line up down the right-hand column.
+        button.setMinSize(34, 32);
+        button.setPrefSize(34, 32);
         return button;
     }
 
-    /** A numbered heading with its action tucked to the right, then the content. */
-    private VBox section(String heading, Button action, Region content) {
-        Label label = new Label(heading);
+    /**
+     * The two numbered choices, laid out on one grid.
+     *
+     * <p>A grid rather than two rows of controls: it puts each action button
+     * immediately beside its drop-down while guaranteeing both drop-downs are
+     * exactly the same width. Packing them into plain rows would leave the
+     * drop-downs slightly different widths, because the two icons are not the
+     * same shape.
+     */
+    private GridPane choices() {
+        GridPane grid = new GridPane();
+        grid.setHgap(8);
+        grid.setVgap(7);
+
+        ColumnConstraints wide = new ColumnConstraints();
+        wide.setHgrow(Priority.ALWAYS);
+        wide.setFillWidth(true);
+        ColumnConstraints narrow = new ColumnConstraints();
+        narrow.setHgrow(Priority.NEVER);
+        grid.getColumnConstraints().addAll(wide, narrow);
+
+        grid.add(sectionHeading("1.   Sensor"), 0, 0, 2, 1);
+        grid.add(portBox, 0, 1);
+        grid.add(refreshPortsButton, 1, 1);
+
+        Region gap = new Region();
+        gap.setMinHeight(9);
+        grid.add(gap, 0, 2, 2, 1);
+
+        grid.add(sectionHeading("2.   Firmware"), 0, 3, 2, 1);
+        grid.add(firmwareBox, 0, 4);
+        grid.add(refreshCatalogButton, 1, 4);
+        grid.add(firmwareNotes, 0, 5, 2, 1);
+        grid.add(catalogStatus, 0, 6, 2, 1);
+
+        return grid;
+    }
+
+    private Label sectionHeading(String text) {
+        Label label = new Label(text);
         label.getStyleClass().add("section-heading");
-        HBox headingRow = new HBox(8, label, spacer(), action);
-        headingRow.setAlignment(Pos.CENTER_LEFT);
-        VBox box = new VBox(7, headingRow, content);
-        box.setFillWidth(true);
-        return box;
+        return label;
     }
 
     // ---------------------------------------------------------------- firmware

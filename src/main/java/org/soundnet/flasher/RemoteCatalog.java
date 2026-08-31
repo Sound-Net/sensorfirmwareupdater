@@ -60,6 +60,16 @@ public final class RemoteCatalog {
                     .build();
             HttpResponse<String> response =
                     client().send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 404) {
+                // raw.githubusercontent.com answers 404 rather than 403 for a
+                // repository it is not allowed to read, so a private repository
+                // and a missing file look identical from here. Say both.
+                listener.log("No firmware list found at " + uri + " (HTTP 404). Either "
+                        + "manifest.json has not been published yet, or the repository is "
+                        + "private - raw.githubusercontent.com cannot read private "
+                        + "repositories, so it would need to be public.");
+                return null;
+            }
             if (response.statusCode() != 200) {
                 listener.log("Firmware repository returned HTTP " + response.statusCode()
                         + " for " + uri);
