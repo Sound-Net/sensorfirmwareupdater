@@ -48,8 +48,9 @@
                - including the nested runtime/ JRE - into one file with no
                WiX/Burn extensions to configure. That installer .exe is large
                (100+ MB, it embeds the whole runtime) and, when double-clicked,
-               installs the app to Program Files with its own copy of the JRE
-               - nothing to download separately. If NSIS isn't available this
+               installs the app under the user's own profile with its own copy
+               of the JRE - no administrator rights, no UAC prompt, and nothing
+               to download separately. If NSIS isn't available this
                step is skipped with a warning rather than failing the whole
                build; the app-image folder is still produced either way. -->
           <plugin>
@@ -84,6 +85,10 @@
                       <arg value="sensor-firmware-updater.jar"/>
                       <arg value="--main-class"/>
                       <arg value="org.soundnet.flasher.Main"/>
+                      <!-- Icon for the generated launcher .exe. jpackage wants
+                           .ico on Windows, .icns on macOS and .png on Linux. -->
+                      <arg value="--icon"/>
+                      <arg value="${project.basedir}/src/main/installer/icon.ico"/>
                       <arg value="--dest"/>
                       <arg value="${project.build.directory}/dist/app-image"/>
                     </exec>
@@ -106,6 +111,8 @@
                         <filter token="APP_EXE" value="SoundNet Firmware Updater.exe"/>
                         <filter token="APP_IMAGE_DIR"
                                 value="${project.build.directory}/dist/app-image/SoundNet Firmware Updater"/>
+                        <filter token="APP_ICON"
+                                value="${project.basedir}/src/main/installer/icon.ico"/>
                         <filter token="OUT_FILE"
                                 value="${project.build.directory}/dist/installer/SoundNetFirmwareUpdaterSetup-${project.version}.exe"/>
                       </filterset>

@@ -18,12 +18,15 @@ jobs:
           - os: windows-latest
             package_type: msi
             artifact: SoundNetFirmwareUpdater-windows
+            icon: src/main/installer/icon.ico
           - os: macos-latest
             package_type: dmg
             artifact: SoundNetFirmwareUpdater-macos
+            icon: src/main/installer/icon.icns
           - os: ubuntu-latest
             package_type: deb
             artifact: SoundNetFirmwareUpdater-linux
+            icon: src/main/installer/icon.png
 
     runs-on: ${{ matrix.os }}
 
@@ -68,10 +71,14 @@ jobs:
             --input target/app \
             --main-jar sensor-firmware-updater.jar \
             --main-class org.soundnet.flasher.Main \
+            --icon "${{ matrix.icon }}" \
             --dest target/installer \
             $EXTRA
         env:
-          EXTRA: ${{ runner.os == 'Windows' && '--win-shortcut --win-menu --win-dir-chooser' || '' }}
+          # --win-per-user-install keeps the .msi in step with the NSIS
+          # installer: installs under the user's own profile, no admin
+          # rights and no UAC prompt.
+          EXTRA: ${{ runner.os == 'Windows' && '--win-shortcut --win-menu --win-dir-chooser --win-per-user-install' || '' }}
 
       # A plain unzip-and-run build, for anyone who cannot run an installer -
       # locked-down institutional laptops are common in this audience.
@@ -85,6 +92,7 @@ jobs:
             --input target/app \
             --main-jar sensor-firmware-updater.jar \
             --main-class org.soundnet.flasher.Main \
+            --icon "${{ matrix.icon }}" \
             --dest target/portable
 
       - name: Upload installer

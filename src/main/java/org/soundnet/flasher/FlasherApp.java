@@ -25,6 +25,7 @@ import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
 import javafx.scene.control.Tooltip;
+import javafx.scene.image.Image;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -154,6 +155,12 @@ public final class FlasherApp extends Application {
         // Loaded after the theme so these rules win over it.
         scene.getStylesheets().add(FlasherApp.class.getResource("/style.css").toExternalForm());
         applyStyle(darkModeToggle.isSelected());
+
+        // Window, taskbar and dock icon. Generated from the master artwork by
+        // tools/make-icons.py; the installers use the .ico/.icns alongside the
+        // NSIS template in src/main/installer.
+        stage.getIcons().add(
+                new Image(FlasherApp.class.getResourceAsStream("/app-icon.png")));
 
         stage.setTitle("SoundNet Firmware Updater");
         stage.setScene(scene);
