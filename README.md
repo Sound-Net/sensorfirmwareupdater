@@ -95,16 +95,47 @@ Requires JDK 17 or newer. The UI uses the
 [Transit](https://github.com/dukke/Transit) theme (GPLv2 with Classpath
 Exception).
 
+### Windows: a Java-free `.exe`, produced automatically
+
+On Windows, `mvn package` (run with a full JDK 17+, not a JRE-only install)
+automatically produces two self-contained builds — neither needs the
+researcher to install Java:
+
+```
+target/dist/app-image/SoundNet Firmware Updater/SoundNet Firmware Updater.exe
+target/dist/installer/SoundNetFirmwareUpdaterSetup-1.0.0.exe
+```
+
+- **`app-image`** is a *folder*, built with `jpackage`. Its `.exe` is only a
+  few hundred KB because it is just a native launcher stub that loads the JVM
+  from the `runtime` subfolder sitting right next to it. That whole folder is
+  the self-contained app — copy or zip it as a unit; the `.exe` does not work
+  if pulled out on its own.
+- **`installer`** is the single file most people mean by "a `.exe` containing
+  the JRE": one `.exe` (100+ MB — that size *is* the bundled Java runtime)
+  that, when double-clicked, installs the app plus its own private JRE into
+  Program Files, with Start Menu/desktop shortcuts and an uninstaller. This is
+  built by packing the `app-image` folder above with
+  [NSIS](https://nsis.sourceforge.io/) (`makensis`,
+  [`src/main/installer/windows-installer.nsi.template`](src/main/installer/windows-installer.nsi.template)),
+  **not** WiX — NSIS handles a deeply nested folder tree (like a bundled JRE)
+  with one recursive `File /r` line and needs no extra extensions installed.
+  Requires `makensis` on `PATH` (`choco install nsis`); if it's missing, this
+  step prints a warning and is skipped rather than failing the whole build,
+  and only the `app-image` folder above is produced.
+
 ### Installers
 
-`jpackage` is **not** a cross-compiler: a Windows `.msi` can only be built on
-Windows. Push a `v*` tag and
-[`.github/workflows/release.yml`](.github/workflows/release.yml) builds Windows,
-macOS and Linux installers on their own runners.
+`jpackage`/`makensis` are **not** cross-compilers: a Windows installer can
+only be built on Windows. Push a `v*` tag (or run the workflow manually) and
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds
+Windows, macOS and Linux installers on their own runners. On Windows this
+produces both a single-file `.exe` installer and an `.msi`, plus a portable
+unzip-and-run app-image for institutional laptops where users cannot run
+installers at all.
 
 Each installer bundles its own Java runtime, so researchers install nothing
-else. The workflow also produces a portable unzip-and-run build, which matters
-for institutional laptops where users cannot run installers.
+else.
 
 ### Refreshing the bundled firmware
 

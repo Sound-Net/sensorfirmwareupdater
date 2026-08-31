@@ -28,6 +28,134 @@
       <id>win</id>
       <activation><os><family>windows</family></os></activation>
       <properties><javafx.platform>win</javafx.platform></properties>
+      <build>
+        <plugins>
+          <!-- Runs automatically on every "mvn package" on Windows, turning the
+               staged app in target/app into self-contained builds with their
+               own bundled JRE, so a researcher never needs to install Java.
+
+               app-image is a *folder* (target/dist/app-image/...): the .exe
+               launcher inside it is only a few hundred KB because it is just
+               a native stub that loads the JVM from the "runtime" folder
+               sitting next to it - the whole folder must be kept together
+               and copied/zipped as a unit, the .exe cannot be copied out on
+               its own.
+
+               For a single .exe file that actually contains the JRE inside
+               it, the app-image folder above gets packed into an installer
+               by NSIS (makensis - https://nsis.sourceforge.io/, e.g. choco
+               install nsis), which recursively bundles the whole folder tree
+               - including the nested runtime/ JRE - into one file with no
+               WiX/Burn extensions to configure. That installer .exe is large
+               (100+ MB, it embeds the whole runtime) and, when double-clicked,
+               installs the app to Program Files with its own copy of the JRE
+               - nothing to download separately. If NSIS isn't available this
+               step is skipped with a warning rather than failing the whole
+               build; the app-image folder is still produced either way. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.1.0</version>
+            <executions>
+              <execution>
+                <id>jpackage-app-image</id>
+                <phase>package</phase>
+                <goals><goal>run</goal></goals>
+                <configuration>
+                  <target>
+                    <delete dir="${project.build.directory}/dist" quiet="true"/>
+                    <!-- ${java.home} is the JDK running this Maven build, so this
+                         does not depend on jpackage happening to be on PATH
+                         (java.home may be a JRE-only install, e.g. Eclipse's
+                         bundled runtime, in which case this step fails - build
+                         with a full JDK 17+ on the PATH/JAVA_HOME instead). -->
+                    <exec executable="${java.home}/bin/jpackage" failonerror="true">
+                      <arg value="--type"/>
+                      <arg value="app-image"/>
+                      <arg value="--name"/>
+                      <arg value="SoundNet Firmware Updater"/>
+                      <arg value="--app-version"/>
+                      <arg value="${project.version}"/>
+                      <arg value="--vendor"/>
+                      <arg value="SoundNet"/>
+                      <arg value="--input"/>
+                      <arg value="${project.build.directory}/app"/>
+                      <arg value="--main-jar"/>
+                      <arg value="sensor-firmware-updater.jar"/>
+                      <arg value="--main-class"/>
+                      <arg value="org.soundnet.flasher.Main"/>
+                      <arg value="--dest"/>
+                      <arg value="${project.build.directory}/dist/app-image"/>
+                    </exec>
+                  </target>
+                </configuration>
+              </execution>
+              <execution>
+                <id>nsis-installer</id>
+                <phase>package</phase>
+                <goals><goal>run</goal></goals>
+                <configuration>
+                  <target>
+                    <mkdir dir="${project.build.directory}/dist/installer"/>
+                    <copy file="${project.basedir}/src/main/installer/windows-installer.nsi.template"
+                          tofile="${project.build.directory}/windows-installer.nsi"
+                          overwrite="true">
+                      <filterset>
+                        <filter token="APP_NAME" value="SoundNet Firmware Updater"/>
+                        <filter token="APP_VERSION" value="${project.version}"/>
+                        <filter token="APP_EXE" value="SoundNet Firmware Updater.exe"/>
+                        <filter token="APP_IMAGE_DIR"
+                                value="${project.build.directory}/dist/app-image/SoundNet Firmware Updater"/>
+                        <filter token="OUT_FILE"
+                                value="${project.build.directory}/dist/installer/SoundNetFirmwareUpdaterSetup-${project.version}.exe"/>
+                      </filterset>
+                    </copy>
+                    <!-- choco install updates PATH in the registry, but a
+                         terminal/IDE opened before that was run keeps its
+                         old copy of PATH and won't see makensis until it is
+                         restarted. Fall back to NSIS's default install
+                         locations so this works without a restart too. -->
+                    <condition property="makensis.cmd"
+                               value="C:\Program Files (x86)\NSIS\makensis.exe">
+                      <available file="C:\Program Files (x86)\NSIS\makensis.exe"/>
+                    </condition>
+                    <condition property="makensis.cmd"
+                               value="C:\Program Files\NSIS\makensis.exe">
+                      <available file="C:\Program Files\NSIS\makensis.exe"/>
+                    </condition>
+                    <condition property="makensis.cmd" value="makensis">
+                      <not><isset property="makensis.cmd"/></not>
+                    </condition>
+                    <!-- failonerror covers makensis running and returning a
+                         non-zero exit code; failifexecutionfails covers
+                         makensis not being found/runnable at all (e.g. not
+                         installed) - Ant treats that as a hard build failure
+                         by default no matter what failonerror is set to. -->
+                    <exec executable="${makensis.cmd}" failonerror="false" failifexecutionfails="false"
+                          resultproperty="nsis.exit" errorproperty="nsis.err">
+                      <arg value="${project.build.directory}/windows-installer.nsi"/>
+                    </exec>
+                    <!-- <echo>'s "if" attribute isn't supported by the Ant
+                         version maven-antrun-plugin uses, so pick the message
+                         with two mutually-exclusive <condition>s instead: only
+                         the one whose test is true actually sets the (single-
+                         assignment) property. -->
+                    <condition property="nsis.message"
+                               value="NSIS installer built: ${project.build.directory}/dist/installer">
+                      <equals arg1="${nsis.exit}" arg2="0"/>
+                    </condition>
+                    <condition property="nsis.message"
+                               value="WARNING: could not build the single-file installer .exe (needs NSIS's makensis on PATH or at its default install location - choco install nsis, then restart your terminal/IDE so PATH refreshes). The self-contained app-image folder in target/dist/app-image is still available and does not need Java installed either, it just has to be copied as a whole folder rather than a single file.">
+                      <not><equals arg1="${nsis.exit}" arg2="0"/></not>
+                    </condition>
+                    <echo message="${nsis.message}"/>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
     <profile>
       <id>mac-aarch64</id>

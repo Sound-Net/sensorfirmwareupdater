@@ -1,0 +1,53 @@
+; NSIS script for the SoundNet Firmware Updater single-file Windows installer.
+;
+; Why NSIS instead of jpackage's built-in "exe" type: on Windows jpackage's
+; "exe" (and "msi") backends both shell out to the WiX Toolset, which needs
+; the Bundle/Burn extension installed and configured. NSIS is a single small
+; tool (no extensions to wire up) that recursively packs an arbitrary folder
+; tree - including the deeply nested bundled JRE under app-image/runtime -
+; into one self-contained installer .exe.
+;
+; Tokens below (the @..@ placeholders) are substituted by the Maven build
+; (see the "nsis-installer" execution in pom.xml) before makensis runs on
+; this file - do not fill them in by hand.
+
+!define APPNAME "@APP_NAME@"
+!define APPVERSION "@APP_VERSION@"
+!define APPEXE "@APP_EXE@"
+!define APPIMAGEDIR "@APP_IMAGE_DIR@"
+
+Name "${APPNAME}"
+OutFile "@OUT_FILE@"
+InstallDir "$PROGRAMFILES64\${APPNAME}"
+InstallDirRegKey HKCU "Software\${APPNAME}" "InstallDir"
+RequestExecutionLevel admin
+SetCompressor /SOLID lzma
+
+Page directory
+Page instfiles
+
+UninstPage uninstConfirm
+UninstPage instfiles
+
+Section "Install"
+  SetOutPath "$INSTDIR"
+  ; Recursively copies the entire app-image folder as-is, bundled JRE and all.
+  File /r "${APPIMAGEDIR}\*.*"
+
+  WriteRegStr HKCU "Software\${APPNAME}" "InstallDir" "$INSTDIR"
+  WriteUninstaller "$INSTDIR\Uninstall.exe"
+
+  CreateDirectory "$SMPROGRAMS\${APPNAME}"
+  CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\${APPEXE}"
+  CreateShortcut "$SMPROGRAMS\${APPNAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${APPEXE}"
+SectionEnd
+
+Section "Uninstall"
+  Delete "$DESKTOP\${APPNAME}.lnk"
+  Delete "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk"
+  Delete "$SMPROGRAMS\${APPNAME}\Uninstall.lnk"
+  RMDir "$SMPROGRAMS\${APPNAME}"
+  RMDir /r "$INSTDIR"
+  DeleteRegKey HKCU "Software\${APPNAME}"
+SectionEnd
