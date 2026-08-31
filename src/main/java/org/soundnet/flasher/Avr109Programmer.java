@@ -25,6 +25,8 @@ public final class Avr109Programmer implements AutoCloseable {
     public static final int APPLICATION_MAX_BYTES = 28672; // 0x7000
 
     private static final byte CR = 0x0D;
+    /** Seven-byte software identifiers reported by bootloaders we can program. */
+    private static final String[] KNOWN_BOOTLOADERS = {"CATERIN", "AVRBOOT"};
     private static final int DEFAULT_BLOCK_SIZE = 128;
     private static final int IO_TIMEOUT_MS = 3000;
 
@@ -77,6 +79,7 @@ public final class Avr109Programmer implements AutoCloseable {
 
         String id = new String(request((byte) 'S', 7), java.nio.charset.StandardCharsets.US_ASCII);
         listener.log("Bootloader identifier: " + id.trim());
+        requireBootloader(id);
 
         byte[] version = request((byte) 'V', 2);
         listener.log("Bootloader version: " + (char) version[0] + "." + (char) version[1]);
@@ -99,6 +102,34 @@ public final class Avr109Programmer implements AutoCloseable {
             throw new FlashException("This bootloader does not support block transfers, "
                     + "so the updater cannot program it. The device may not be a Pro Micro.");
         }
+    }
+
+    /**
+     * Confirms that whatever answered is really a bootloader.
+     *
+     * <p>AVR109 has no handshake to distinguish a bootloader from anything else
+     * that happens to be listening, so a sensor running its normal firmware will
+     * cheerfully reply to 'S' with the first seven bytes of whatever it was
+     * printing. That produced a genuinely baffling failure once: the sensor
+     * answered "Connect", being the start of "Connection to PC Established".
+     *
+     * <p>Checking the identifier turns that into a sentence someone can act on.
+     */
+    static void requireBootloader(String identifier) throws FlashException {
+        for (String known : KNOWN_BOOTLOADERS) {
+            if (known.equals(identifier)) {
+                return;
+            }
+        }
+        throw new FlashException(
+                "The sensor is still running its normal firmware rather than waiting for an "
+                        + "update.\n\n"
+                        + "It replied \"" + identifier.replaceAll("[^\\p{Print}]", "?")
+                        + "\" when asked to identify itself, where a bootloader would have "
+                        + "said CATERIN.\n\n"
+                        + "Unplug the sensor, plug it back in, wait a few seconds, and try "
+                        + "again. If the port you chose is not the sensor, use the refresh "
+                        + "button and pick the one listed as a SoundNet sensor.");
     }
 
     /**

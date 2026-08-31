@@ -30,14 +30,33 @@ public final class PortInfo {
         return pid;
     }
 
-    /** True when this is a Pro Micro running the sketch (PID 0x9203 / 0x9205). */
+    /**
+     * True when this is a Pro Micro running the sketch.
+     *
+     * <p>These are the {@code build.pid} values from SparkFun's boards.txt - the
+     * product id compiled into the sketch's own USB descriptor:
+     *
+     * <pre>
+     *   promicro.menu.cpu.8MHzatmega32U4.build.pid  = 0x9204
+     *   promicro.menu.cpu.16MHzatmega32U4.build.pid = 0x9206
+     * </pre>
+     *
+     * <p>Do not swap these with the bootloader ids below. Getting them the wrong
+     * way round makes the updater mistake a running sensor for a bootloader,
+     * skip the 1200-baud reset, and speak AVR109 at the live firmware.
+     */
     public boolean isSensor() {
-        return vid == SPARKFUN_VID && (pid == 0x9203 || pid == 0x9205);
+        return vid == SPARKFUN_VID && (pid == 0x9204 || pid == 0x9206);
     }
 
-    /** True when this is a Pro Micro sitting in its bootloader (PID 0x9204 / 0x9206). */
+    /**
+     * True when this is a Pro Micro sitting in its Caterina bootloader.
+     *
+     * <p>The {@code build.pid.0} values from boards.txt: 0x9203 at 8 MHz and
+     * 0x9205 at 16 MHz.
+     */
     public boolean isBootloader() {
-        return vid == SPARKFUN_VID && (pid == 0x9204 || pid == 0x9206);
+        return vid == SPARKFUN_VID && (pid == 0x9203 || pid == 0x9205);
     }
 
     /** True for either mode of a Pro Micro. */

@@ -56,8 +56,9 @@ The updater performs that sequence itself:
    different hardware revision from the firmware selected, the user is warned
    before anything is written.
 2. **Reset.** Open the port at 1200 baud and drop DTR. Caterina takes over and
-   the board re-enumerates under a *different* USB product id — `0x9205` becomes
-   `0x9206` — which on Windows usually means a different COM number. The updater
+   the board re-enumerates under a *different* USB product id — `0x9206`
+   (`build.pid`, the running sketch) becomes `0x9205` (`build.pid.0`, the
+   bootloader) — which on Windows usually means a different COM number. The updater
    watches for that swap and follows it. **This is the single thing that makes
    manual flashing hard for non-technical users**, and hiding it is most of the
    value of this application.
