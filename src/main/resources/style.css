@@ -1,0 +1,50 @@
+/*
+ * Layered on top of the Transit theme, which supplies the control styling and
+ * the colour tokens used below (accent_color, -fx-mid-text-color). Kept
+ * deliberately small: anything Transit already does well is left alone.
+ */
+
+.app-title {
+    -fx-font-size: 22px;
+    -fx-font-weight: bold;
+}
+
+.app-subtitle {
+    -fx-text-fill: -fx-mid-text-color;
+}
+
+.section-heading {
+    -fx-font-weight: bold;
+    -fx-text-fill: accent_color;
+}
+
+.notes {
+    -fx-text-fill: -fx-mid-text-color;
+    -fx-font-size: 11.5px;
+}
+
+.status {
+    -fx-text-fill: -fx-mid-text-color;
+}
+
+.status.error {
+    -fx-text-fill: #b3261e;
+    -fx-font-weight: bold;
+}
+
+/* The one button that matters. Transit already paints :default buttons in the
+   accent colour; this only makes it bigger than the secondary buttons. */
+.primary-action {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 11 20 11 20;
+}
+
+.log {
+    -fx-font-family: "Consolas", "Menlo", "DejaVu Sans Mono", monospace;
+    -fx-font-size: 11px;
+}
+
+.progress-bar {
+    -fx-pref-height: 10px;
+}

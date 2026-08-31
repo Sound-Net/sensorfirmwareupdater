@@ -1,0 +1,86 @@
+name: Build installers
+
+# Produces the installers researchers download. jpackage is not a cross-compiler:
+# a Windows installer can only be built on Windows, which is why this runs on a
+# matrix rather than on one machine.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            package_type: msi
+            artifact: SoundNetFirmwareUpdater-windows
+          - os: macos-latest
+            package_type: dmg
+            artifact: SoundNetFirmwareUpdater-macos
+          - os: ubuntu-latest
+            package_type: deb
+            artifact: SoundNetFirmwareUpdater-linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # WiX 3 provides the .msi backend that jpackage shells out to. It is not
+      # present on the GitHub Windows image by default.
+      - name: Install WiX (Windows)
+        if: runner.os == 'Windows'
+        run: choco install wixtoolset --version=3.14.1 --no-progress -y
+        shell: pwsh
+
+      - name: Build and test
+        run: mvn -B package
+
+      - name: Package installer
+        shell: bash
+        run: |
+          jpackage \
+            --type ${{ matrix.package_type }} \
+            --name "SoundNet Firmware Updater" \
+            --app-version 1.0.0 \
+            --vendor "SoundNet" \
+            --input target/app \
+            --main-jar sensor-firmware-updater.jar \
+            --main-class org.soundnet.flasher.Main \
+            --dest target/installer \
+            $EXTRA
+        env:
+          EXTRA: ${{ runner.os == 'Windows' && '--win-shortcut --win-menu --win-dir-chooser' || '' }}
+
+      # A plain unzip-and-run build, for anyone who cannot run an installer -
+      # locked-down institutional laptops are common in this audience.
+      - name: Package portable app image
+        shell: bash
+        run: |
+          jpackage \
+            --type app-image \
+            --name "SoundNet Firmware Updater" \
+            --app-version 1.0.0 \
+            --input target/app \
+            --main-jar sensor-firmware-updater.jar \
+            --main-class org.soundnet.flasher.Main \
+            --dest target/portable
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            target/installer/*
+            target/portable/*

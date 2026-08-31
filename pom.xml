@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>org.soundnet</groupId>
+  <artifactId>sensor-firmware-updater</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+  <name>SoundNet Sensor Firmware Updater</name>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <javafx.version>22.0.2</javafx.version>
+    <jserialcomm.version>2.11.0</jserialcomm.version>
+    <transit.version>2.0.0</transit.version>
+    <gson.version>2.11.0</gson.version>
+    <junit.version>5.10.2</junit.version>
+  </properties>
+
+  <!-- JavaFX ships platform-specific natives. Pick the classifier for whichever
+       machine is doing the build; the Windows installer must be built on Windows. -->
+  <profiles>
+    <profile>
+      <id>win</id>
+      <activation><os><family>windows</family></os></activation>
+      <properties><javafx.platform>win</javafx.platform></properties>
+    </profile>
+    <profile>
+      <id>mac-aarch64</id>
+      <activation><os><family>mac</family><arch>aarch64</arch></os></activation>
+      <properties><javafx.platform>mac-aarch64</javafx.platform></properties>
+    </profile>
+    <profile>
+      <id>mac-x86</id>
+      <activation><os><family>mac</family><arch>x86_64</arch></os></activation>
+      <properties><javafx.platform>mac</javafx.platform></properties>
+    </profile>
+    <profile>
+      <id>linux</id>
+      <activation><os><family>unix</family><name>Linux</name></os></activation>
+      <properties><javafx.platform>linux</javafx.platform></properties>
+    </profile>
+  </profiles>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-base</artifactId>
+      <version>${javafx.version}</version>
+      <classifier>${javafx.platform}</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-graphics</artifactId>
+      <version>${javafx.version}</version>
+      <classifier>${javafx.platform}</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+      <classifier>${javafx.platform}</classifier>
+    </dependency>
+
+    <!-- Transit theme (GPLv2 with Classpath Exception, so linking is fine here).
+         Pulls in FXSkins and fxthemes transitively. -->
+    <dependency>
+      <groupId>com.pixelduke</groupId>
+      <artifactId>transit</artifactId>
+      <version>${transit.version}</version>
+      <exclusions>
+        <!-- Transit pulls FXSkins and ControlsFX, which still declare JavaFX 11
+             (including a win-classifier jar). Letting those onto the classpath
+             alongside our JavaFX ${javafx.version} mixes two runtimes and ships
+             the wrong platform's natives. The JavaFX we declare above is the
+             only one we want. -->
+        <exclusion>
+          <groupId>org.openjfx</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>${gson.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fazecast</groupId>
+      <artifactId>jSerialComm</artifactId>
+      <version>${jserialcomm.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>sensor-firmware-updater</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>org.soundnet.flasher.Main</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <!-- Collect every dependency next to the jar so jpackage can consume the
+           whole directory as a classpath app-image. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>copy-deps</id>
+            <phase>package</phase>
+            <goals><goal>copy-dependencies</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/app/lib</outputDirectory>
+              <includeScope>runtime</includeScope>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>stage-jar</id>
+            <phase>package</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <copy file="${project.build.directory}/sensor-firmware-updater.jar"
+                      todir="${project.build.directory}/app"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
