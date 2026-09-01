@@ -113,26 +113,27 @@ target/dist/installer/SoundNetFirmwareUpdaterSetup-1.0.0.exe
   if pulled out on its own.
 - **`installer`** is the single file most people mean by "a `.exe` containing
   the JRE": one `.exe` (100+ MB — that size *is* the bundled Java runtime)
-  that, when double-clicked, installs the app plus its own private JRE into
-  Program Files, with Start Menu/desktop shortcuts and an uninstaller. This is
-  built by packing the `app-image` folder above with
-  [NSIS](https://nsis.sourceforge.io/) (`makensis`,
-  [`src/main/installer/windows-installer.nsi.template`](src/main/installer/windows-installer.nsi.template)),
-  **not** WiX — NSIS handles a deeply nested folder tree (like a bundled JRE)
-  with one recursive `File /r` line and needs no extra extensions installed.
-  Requires `makensis` on `PATH` (`choco install nsis`); if it's missing, this
-  step prints a warning and is skipped rather than failing the whole build,
-  and only the `app-image` folder above is produced.
+  that, when double-clicked, installs the app plus its own private JRE under
+  the current user's profile (no administrator rights, no UAC prompt), with
+  Start Menu/desktop shortcuts and an uninstaller. This is built by
+  `jpackage --type exe` directly (no custom install script involved) — on
+  Windows that shells out to the [WiX Toolset v3](https://wixtoolset.org/)
+  (`candle.exe`/`light.exe`, which ship with the Burn bootstrapper backend
+  `--type exe` needs). Requires WiX on `PATH` (`choco install wixtoolset
+  --version=3.14.1`); if it's missing, this step prints a warning and is
+  skipped rather than failing the whole build, and only the `app-image`
+  folder above is produced.
 
 ### Installers
 
-`jpackage`/`makensis` are **not** cross-compilers: a Windows installer can
-only be built on Windows. Push a `v*` tag (or run the workflow manually) and
+`jpackage` is **not** a cross-compiler: a Windows installer can only be built
+on Windows. Push a `v*` tag (or run the workflow manually) and
 [`.github/workflows/release.yml`](.github/workflows/release.yml) builds
 Windows, macOS and Linux installers on their own runners. On Windows this
-produces both a single-file `.exe` installer and an `.msi`, plus a portable
-unzip-and-run app-image for institutional laptops where users cannot run
-installers at all.
+produces both a single-file `.exe` installer and an `.msi` (both via WiX),
+plus a portable unzip-and-run app-image for institutional laptops where
+users cannot run installers at all.
+
 
 Each installer bundles its own Java runtime, so researchers install nothing
 else.

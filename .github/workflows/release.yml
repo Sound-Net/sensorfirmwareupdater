@@ -40,23 +40,19 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # WiX 3 provides the .msi backend that jpackage shells out to. It is not
-      # present on the GitHub Windows image by default.
+      # WiX 3 provides the .msi backend that jpackage shells out to, and the
+      # Burn bootstrapper backend for --type exe (see pom.xml's "win" profile,
+      # wix-exe-installer execution) - both come from the same toolset, no
+      # extra extensions to install.
       - name: Install WiX (Windows)
         if: runner.os == 'Windows'
         run: choco install wixtoolset --version=3.14.1 --no-progress -y
         shell: pwsh
 
-      # NSIS builds the single-file .exe installer (see pom.xml's "win" profile,
-      # nsis-installer execution) - no WiX/Burn extensions needed for that one.
-      - name: Install NSIS (Windows)
-        if: runner.os == 'Windows'
-        run: choco install nsis --no-progress -y
-        shell: pwsh
-
       # On Windows this also builds target/dist/app-image (self-contained
-      # folder) and target/dist/installer/*.exe (single-file NSIS installer,
-      # bundled JRE included) automatically - see the "win" profile in pom.xml.
+      # folder) and target/dist/installer/*.exe (single-file WiX/Burn
+      # installer, bundled JRE included) automatically - see the "win" profile
+      # in pom.xml.
       - name: Build and test
         run: mvn -B package
 

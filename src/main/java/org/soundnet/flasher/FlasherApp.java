@@ -77,6 +77,13 @@ public final class FlasherApp extends Application {
     private VBox root;
     private Timeline portPoller;
     private boolean busy;
+    /**
+     * Set once serial port enumeration has failed outright, which in practice
+     * means jSerialComm could not unpack its native library rather than anything
+     * the sensor did. Polling stops there so the failure is reported once rather
+     * than every two seconds.
+     */
+    private boolean portsUnavailable;
 
     public static void main(String[] args) {
         launch(args);
@@ -172,14 +179,18 @@ public final class FlasherApp extends Application {
         loadFirmwareOffline();
         refreshCatalog(false);
 
-        // Sensors get plugged in after the window is already open.
-        portPoller = new Timeline(new KeyFrame(Duration.seconds(2), e -> {
-            if (!busy) {
-                refreshPorts();
-            }
-        }));
-        portPoller.setCycleCount(Animation.INDEFINITE);
-        portPoller.play();
+        // Sensors get plugged in after the window is already open. No point
+        // polling if the very first enumeration already said serial support is
+        // unusable - the Refresh button is left as the way to try again.
+        if (!portsUnavailable) {
+            portPoller = new Timeline(new KeyFrame(Duration.seconds(2), e -> {
+                if (!busy) {
+                    refreshPorts();
+                }
+            }));
+            portPoller.setCycleCount(Animation.INDEFINITE);
+            portPoller.play();
+        }
     }
 
     @Override
@@ -320,8 +331,28 @@ public final class FlasherApp extends Application {
     // ------------------------------------------------------------------- ports
 
     private void refreshPorts() {
+        List<PortInfo> ports;
+        try {
+            ports = SerialPortService.listPorts();
+        } catch (Exception | LinkageError e) {
+            // jSerialComm unpacks and loads a native library the first time it
+            // is touched, and a failure there surfaces as a LinkageError rather
+            // than an Exception. Letting either escape start() kills the
+            // application before the window is up, which the packaged launcher
+            // reports as nothing more useful than "Failed to launch JVM".
+            reportPortsUnavailable(e);
+            return;
+        }
+        if (portsUnavailable) {
+            portsUnavailable = false;
+            portBox.setPlaceholder(new Label("No serial ports found"));
+            statusLabel.getStyleClass().removeIf("error"::equals);
+            statusLabel.setText("Connect a sensor by USB to begin.");
+            if (portPoller != null) {
+                portPoller.play();
+            }
+        }
         PortInfo selected = portBox.getValue();
-        List<PortInfo> ports = SerialPortService.listPorts();
         if (!ports.equals(portBox.getItems())) {
             portBox.getItems().setAll(ports);
             if (selected != null && ports.contains(selected)) {
@@ -332,6 +363,29 @@ public final class FlasherApp extends Application {
                         .ifPresent(portBox::setValue);
             }
         }
+        updateReadiness();
+    }
+
+    /**
+     * Degrades to a window that explains itself when serial support cannot be
+     * used at all, instead of taking the application down with it. Reported once
+     * and then left alone: the Refresh button re-runs the enumeration, so a
+     * failure that turns out to be transient still recovers.
+     */
+    private void reportPortsUnavailable(Throwable error) {
+        log("Serial ports are unavailable: " + describe(error));
+        if (portsUnavailable) {
+            return;
+        }
+        portsUnavailable = true;
+        if (portPoller != null) {
+            portPoller.stop();
+        }
+        portBox.getItems().clear();
+        portBox.setPlaceholder(new Label("Serial ports are unavailable"));
+        statusLabel.getStyleClass().add("error");
+        statusLabel.setText("This computer's serial port support could not be started, "
+                + "so no sensor can be found. See the details pane below.");
         updateReadiness();
     }
 

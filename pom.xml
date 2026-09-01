@@ -14,7 +14,7 @@
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javafx.version>22.0.2</javafx.version>
-    <jserialcomm.version>2.11.0</jserialcomm.version>
+    <jserialcomm.version>2.11.4</jserialcomm.version>
     <transit.version>2.0.0</transit.version>
     <gson.version>2.11.0</gson.version>
     <controlsfx.version>11.0.0</controlsfx.version>
@@ -42,17 +42,19 @@
                its own.
 
                For a single .exe file that actually contains the JRE inside
-               it, the app-image folder above gets packed into an installer
-               by NSIS (makensis - https://nsis.sourceforge.io/, e.g. choco
-               install nsis), which recursively bundles the whole folder tree
-               - including the nested runtime/ JRE - into one file with no
-               WiX/Burn extensions to configure. That installer .exe is large
-               (100+ MB, it embeds the whole runtime) and, when double-clicked,
-               installs the app under the user's own profile with its own copy
-               of the JRE - no administrator rights, no UAC prompt, and nothing
-               to download separately. If NSIS isn't available this
-               step is skipped with a warning rather than failing the whole
-               build; the app-image folder is still produced either way. -->
+               it, jpackage's own "exe" type builds a proper installer
+               directly (no custom script needed): on Windows this shells out
+               to the WiX Toolset v3 (candle.exe/light.exe, which ship with
+               the Burn bootstrapper backend the "exe" jpackage type needs)
+               - https://wixtoolset.org/, e.g. choco install wixtoolset,
+               version 3.14.1. That installer .exe is large (100+ MB, it
+               embeds the whole runtime) and, when double-clicked, installs
+               the app under the user's own profile with its own copy of the
+               JRE (win-per-user-install: no administrator rights, no UAC
+               prompt) - nothing to download separately. If WiX isn't
+               available this step is skipped with a warning rather than
+               failing the whole build; the app-image folder is still
+               produced either way. -->
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-antrun-plugin</artifactId>
@@ -85,6 +87,17 @@
                       <arg value="sensor-firmware-updater.jar"/>
                       <arg value="--main-class"/>
                       <arg value="org.soundnet.flasher.Main"/>
+                      <!-- The app loads classes reflectively (JavaFX/FXML,
+                           ControlsFX, the theme jars) and jlink cannot see
+                           those uses, so let it keep the whole module path
+                           rather than the minimal set it would infer. Without
+                           this the runtime can end up missing a module the app
+                           only needs at startup, which shows up as the splash
+                           flashing and then a native "Failed to launch JVM"
+                           dialog. The installer execution below passes the same
+                           flag so both bundles ship an identical runtime. -->
+                      <arg value="--add-modules"/>
+                      <arg value="ALL-MODULE-PATH"/>
                       <!-- Icon for the generated launcher .exe. jpackage wants
                            .ico on Windows, .icns on macOS and .png on Linux. -->
                       <arg value="--icon"/>
@@ -96,66 +109,101 @@
                 </configuration>
               </execution>
               <execution>
-                <id>nsis-installer</id>
+                <id>wix-exe-installer</id>
                 <phase>package</phase>
                 <goals><goal>run</goal></goals>
                 <configuration>
                   <target>
                     <mkdir dir="${project.build.directory}/dist/installer"/>
-                    <copy file="${project.basedir}/src/main/installer/windows-installer.nsi.template"
-                          tofile="${project.build.directory}/windows-installer.nsi"
-                          overwrite="true">
-                      <filterset>
-                        <filter token="APP_NAME" value="SoundNet Firmware Updater"/>
-                        <filter token="APP_VERSION" value="${project.version}"/>
-                        <filter token="APP_EXE" value="SoundNet Firmware Updater.exe"/>
-                        <filter token="APP_IMAGE_DIR"
-                                value="${project.build.directory}/dist/app-image/SoundNet Firmware Updater"/>
-                        <filter token="APP_ICON"
-                                value="${project.basedir}/src/main/installer/icon.ico"/>
-                        <filter token="OUT_FILE"
-                                value="${project.build.directory}/dist/installer/SoundNetFirmwareUpdaterSetup-${project.version}.exe"/>
-                      </filterset>
-                    </copy>
-                    <!-- choco install updates PATH in the registry, but a
-                         terminal/IDE opened before that was run keeps its
-                         old copy of PATH and won't see makensis until it is
-                         restarted. Fall back to NSIS's default install
-                         locations so this works without a restart too. -->
-                    <condition property="makensis.cmd"
-                               value="C:\Program Files (x86)\NSIS\makensis.exe">
-                      <available file="C:\Program Files (x86)\NSIS\makensis.exe"/>
+                    <property environment="env"/>
+                    <!-- Work out candle.exe/light.exe's folder so jpackage can
+                         find them even if PATH has not been refreshed since
+                         WiX was installed (choco updates the registry, but a
+                         terminal/IDE opened beforehand keeps its old PATH).
+                         The WiX installer itself sets the WIX env var to its
+                         install root ("...\WiX Toolset v3.14\", trailing
+                         backslash included), which is the most version-proof
+                         source; the hard-coded folder is a fallback for
+                         installs that predate that variable. -->
+                    <condition property="wix.bindir" value="${env.WIX}bin">
+                      <isset property="env.WIX"/>
                     </condition>
-                    <condition property="makensis.cmd"
-                               value="C:\Program Files\NSIS\makensis.exe">
-                      <available file="C:\Program Files\NSIS\makensis.exe"/>
+                    <condition property="wix.bindir"
+                               value="C:\Program Files (x86)\WiX Toolset v3.14\bin">
+                      <available file="C:\Program Files (x86)\WiX Toolset v3.14\bin\candle.exe"/>
                     </condition>
-                    <condition property="makensis.cmd" value="makensis">
-                      <not><isset property="makensis.cmd"/></not>
+                    <condition property="wix.bindir" value="">
+                      <not><isset property="wix.bindir"/></not>
                     </condition>
-                    <!-- failonerror covers makensis running and returning a
+                    <!-- Windows names its PATH variable "Path" or "PATH"
+                         depending on the machine; read whichever exists so
+                         the prepended value below is never lost. -->
+                    <condition property="path.current" value="${env.Path}">
+                      <isset property="env.Path"/>
+                    </condition>
+                    <condition property="path.current" value="${env.PATH}">
+                      <isset property="env.PATH"/>
+                    </condition>
+                    <condition property="path.current" value="">
+                      <not><or><isset property="env.Path"/><isset property="env.PATH"/></or></not>
+                    </condition>
+                    <!-- failonerror covers jpackage running and returning a
                          non-zero exit code; failifexecutionfails covers
-                         makensis not being found/runnable at all (e.g. not
-                         installed) - Ant treats that as a hard build failure
-                         by default no matter what failonerror is set to. -->
-                    <exec executable="${makensis.cmd}" failonerror="false" failifexecutionfails="false"
-                          resultproperty="nsis.exit" errorproperty="nsis.err">
-                      <arg value="${project.build.directory}/windows-installer.nsi"/>
+                         jpackage not being runnable at all - Ant treats that
+                         as a hard build failure by default no matter what
+                         failonerror says. -->
+                    <exec executable="${java.home}/bin/jpackage" failonerror="false" failifexecutionfails="false"
+                          resultproperty="wix.exit" outputproperty="wix.out" errorproperty="wix.err">
+                      <!-- Ant's environment merge is case-insensitive on
+                           Windows, so setting "Path" here correctly overrides
+                           whichever case the inherited variable actually
+                           used. -->
+                      <env key="Path" value="${wix.bindir}${path.separator}${path.current}"/>
+                      <arg value="--type"/>
+                      <arg value="exe"/>
+                      <arg value="--name"/>
+                      <arg value="SoundNet Firmware Updater"/>
+                      <arg value="--app-version"/>
+                      <arg value="${project.version}"/>
+                      <arg value="--vendor"/>
+                      <arg value="SoundNet"/>
+                      <arg value="--input"/>
+                      <arg value="${project.build.directory}/app"/>
+                      <arg value="--main-jar"/>
+                      <arg value="sensor-firmware-updater.jar"/>
+                      <arg value="--main-class"/>
+                      <arg value="org.soundnet.flasher.Main"/>
+                      <!-- See the matching comment on the app-image execution
+                           above: without this, the jlinked runtime jpackage
+                           builds can end up missing a module the app needs
+                           at startup, which manifests as the splash flashing
+                           and then a native "JVM failed to launch" dialog. -->
+                      <arg value="--add-modules"/>
+                      <arg value="ALL-MODULE-PATH"/>
+                      <arg value="--icon"/>
+                      <arg value="${project.basedir}/src/main/installer/icon.ico"/>
+                      <!-- Per-user install: no administrator rights, no UAC prompt. -->
+                      <arg value="--win-per-user-install"/>
+                      <arg value="--win-shortcut"/>
+                      <arg value="--win-menu"/>
+                      <arg value="--win-dir-chooser"/>
+                      <arg value="--dest"/>
+                      <arg value="${project.build.directory}/dist/installer"/>
                     </exec>
                     <!-- <echo>'s "if" attribute isn't supported by the Ant
                          version maven-antrun-plugin uses, so pick the message
-                         with two mutually-exclusive <condition>s instead: only
-                         the one whose test is true actually sets the (single-
-                         assignment) property. -->
-                    <condition property="nsis.message"
-                               value="NSIS installer built: ${project.build.directory}/dist/installer">
-                      <equals arg1="${nsis.exit}" arg2="0"/>
+                         with mutually-exclusive <condition>s instead: only
+                         the first one whose test is true actually sets the
+                         (single-assignment, so later ones are no-ops) property. -->
+                    <condition property="wix.message"
+                               value="WiX installer built: ${project.build.directory}/dist/installer">
+                      <equals arg1="${wix.exit}" arg2="0"/>
                     </condition>
-                    <condition property="nsis.message"
-                               value="WARNING: could not build the single-file installer .exe (needs NSIS's makensis on PATH or at its default install location - choco install nsis, then restart your terminal/IDE so PATH refreshes). The self-contained app-image folder in target/dist/app-image is still available and does not need Java installed either, it just has to be copied as a whole folder rather than a single file.">
-                      <not><equals arg1="${nsis.exit}" arg2="0"/></not>
+                    <condition property="wix.message"
+                               value="WARNING: could not build the single-file installer .exe (needs WiX Toolset v3 on PATH or at its default install location - choco install wixtoolset --version=3.14.1, then restart your terminal/IDE so PATH refreshes). The self-contained app-image folder in target/dist/app-image is still available and does not need Java installed either, it just has to be copied as a whole folder rather than a single file. jpackage output was:${line.separator}${wix.out}${line.separator}${wix.err}">
+                      <not><equals arg1="${wix.exit}" arg2="0"/></not>
                     </condition>
-                    <echo message="${nsis.message}"/>
+                    <echo message="${wix.message}"/>
                   </target>
                 </configuration>
               </execution>
@@ -242,6 +290,16 @@
       <version>${gson.version}</version>
     </dependency>
 
+    <!-- Keep this at 2.11.1 or newer. On Windows jSerialComm unpacks its
+         bundled native library by trying each architecture in turn (aarch64,
+         armv7, x86_64, x86), writing every candidate to the same
+         %TEMP%/jSerialComm/<version>/jSerialComm.dll. 2.11.0 marks that file
+         read-only straight after writing it, and Windows refuses to delete or
+         overwrite a read-only file, so the very first (aarch64) candidate wins
+         the filename, fails to load on an x86_64 machine, and every later
+         candidate dies with "Access is denied" - the app then goes down with an
+         UnsatisfiedLinkError before the window is ever shown, which the
+         jpackage launcher reports as the unhelpful "Failed to launch JVM". -->
     <dependency>
       <groupId>com.fazecast</groupId>
       <artifactId>jSerialComm</artifactId>

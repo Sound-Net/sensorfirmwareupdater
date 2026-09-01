@@ -97,12 +97,16 @@
                       <arg />
                       <arg />
                       <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
                     </exec>
                   </target>
                 </configuration>
               </execution>
               <execution>
-                <id>nsis-installer</id>
+                <id>wix-exe-installer</id>
                 <phase>package</phase>
                 <goals>
                   <goal>run</goal>
@@ -110,17 +114,9 @@
                 <configuration>
                   <target>
                     <mkdir />
-                    <copy>
-                      <filterset>
-                        <filter />
-                        <filter />
-                        <filter />
-                        <filter />
-                        <filter />
-                      </filterset>
-                    </copy>
+                    <property />
                     <condition>
-                      <available />
+                      <isset />
                     </condition>
                     <condition>
                       <available />
@@ -130,7 +126,45 @@
                         <isset />
                       </not>
                     </condition>
+                    <condition>
+                      <isset />
+                    </condition>
+                    <condition>
+                      <isset />
+                    </condition>
+                    <condition>
+                      <not>
+                        <or>
+                          <isset />
+                          <isset />
+                        </or>
+                      </not>
+                    </condition>
                     <exec>
+                      <env />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
+                      <arg />
                       <arg />
                     </exec>
                     <condition>
@@ -199,7 +233,7 @@
     <gson.version>2.11.0</gson.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javafx.version>22.0.2</javafx.version>
-    <jserialcomm.version>2.11.0</jserialcomm.version>
+    <jserialcomm.version>2.11.4</jserialcomm.version>
     <junit.version>5.10.2</junit.version>
     <controlsfx.version>11.0.0</controlsfx.version>
     <transit.version>2.0.0</transit.version>
